@@ -33,3 +33,6 @@
 
 # Editor Files
 .vscode
+
+# output exec
+ping
