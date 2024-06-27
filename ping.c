@@ -36,13 +36,15 @@ int main(int argc, char** argv) {
 	printf("ping %s (%s): %d data bytes\n", ai->ai_canonname,
 		Sock_ntop_host(ai->ai_addr, ai->ai_addrlen), datalen);
 
-	/* 4initialize according to protocol */
+	/* initialize according to protocol */
 	if (ai->ai_family == AF_INET) {
 		pr = &proto_v4;
+		printf("is ipv4!\n");
 #ifdef	IPV6
 	}
 	else if (ai->ai_family == AF_INET6) {
 		pr = &proto_v6;
+		printf("is ipv6!\n");
 		if (IN6_IS_ADDR_V4MAPPED(&(((struct sockaddr_in6*)
 			ai->ai_addr)->sin6_addr)))
 			err_quit("cannot ping IPv4-mapped IPv6 address");
@@ -223,6 +225,9 @@ readloop(void) {
 	struct timeval	tval;
 
 	sockfd = socket(pr->sasend->sa_family, SOCK_RAW, pr->icmpproto);
+	if (sockfd < 0) {
+    	err_sys("socket creation failed");
+	}	
 	setuid(getuid());		/* don't need special permissions any more */
 
 	size = 60 * 1024;		/* OK if setsockopt fails */
