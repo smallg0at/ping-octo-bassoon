@@ -13,15 +13,60 @@ int main(int argc, char** argv) {
 	struct addrinfo* ai;
 
 	opterr = 0;		/* don't want getopt() writing to stderr */
-	while ((c = getopt(argc, argv, "v")) != -1) {
+    extern char *optarg;
+    extern int optind, optopt;
+
+	while ((c = getopt(argc, argv, "bc:hi:qs:t:v")) != -1) {
 		switch (c) {
+		case 'b':
+			// Ping broadcast
+			printf("Option %c has not been implemented yet\n", c);
+			break;
+		case 'c':
+			// Terminate after certain count
+			printf("Option %c has not been implemented yet, hasvalue %d\n", c,atoi(optarg));
+			break;		
+
+		case 'h':
+			//Helpstring
+			printf("Helpstring to be added.\n");
+			return(0);
+
+		case 'i':
+			// Send Interval
+			printf("Option %c has not been implemented yet, hasvalue %d\n", c,atoi(optarg));
+			break;
+
+		case 'q':
+			//Only show analytics
+			printf("Option %c has not been implemented yet\n", c);
+			break;
+		
+		case 's':
+			printf("Option %c has not been implemented yet, hasvalue %d\n", c,atoi(optarg));
+			break;
+
+		case 't':
+			printf("Option %c has not been implemented yet, hasvalue %d\n", c,atoi(optarg));
+			break;
+
 		case 'v':
 			verbose++;
 			break;
 
 		case '?':
 			err_quit("unrecognized option: %c", c);
+			break;
+
+		case ':':
+			err_quit("Missing Argument: %c", c);
+			break;
+
+		default:
+			printf("Option %c has not been implemented yet", c);
+			return(0);
 		}
+
 	}
 
 	if (optind != argc - 1)
@@ -226,6 +271,7 @@ readloop(void) {
 
 	sockfd = socket(pr->sasend->sa_family, SOCK_RAW, pr->icmpproto);
 	if (sockfd < 0) {
+		printf("Socket went wrong: Probably missing superuser priv.\n");
     	err_sys("socket creation failed");
 	}	
 	setuid(getuid());		/* don't need special permissions any more */
