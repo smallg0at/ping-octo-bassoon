@@ -150,7 +150,7 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
            Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_type,
            icmp->icmp_code);
   }
-  if (option_maxsend != 0 && icmp->icmp_seq >= option_maxsend)
+  if (option_maxsend != 0 && icmp->icmp_seq >= option_maxsend-1)
     halt_operation = 1;
 }
 
@@ -196,7 +196,7 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
            Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_type,
            icmp6->icmp6_code);
   }
-  if (option_maxsend != 0 && icmp6->icmp6_seq >= option_maxsend)
+  if (option_maxsend != 0 && icmp6->icmp6_seq >= option_maxsend-1)
     halt_operation = 1;
 #endif /* IPV6 */
 }
