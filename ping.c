@@ -8,6 +8,8 @@ struct proto proto_v6 = {proc_v6, send_v6, NULL, NULL, 0, IPPROTO_ICMPV6};
 
 int datalen = 56; /* data that goes with ICMP echo request */
 int option_interval = 1;
+int option_maxsend = 0;
+int halt_operation = 0;
 
 int main(int argc, char **argv) {
   int c;
@@ -28,8 +30,7 @@ int main(int argc, char **argv) {
       break;
     case 'c':
       // Terminate after certain count
-      printf("Option %c has not been implemented yet, hasvalue %d\n", c,
-             atoi(optarg));
+      option_maxsend = atoi(optarg);
       optionextra++;
       break;
 
@@ -149,6 +150,8 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
            Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_type,
            icmp->icmp_code);
   }
+  if (option_maxsend != 0 && icmp->icmp_seq >= option_maxsend)
+    halt_operation = 1;
 }
 
 void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
@@ -193,6 +196,8 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
            Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_type,
            icmp6->icmp6_code);
   }
+  if (option_maxsend != 0 && icmp6->icmp6_seq >= option_maxsend)
+    halt_operation = 1;
 #endif /* IPV6 */
 }
 
@@ -293,13 +298,16 @@ void readloop(void) {
 
     gettimeofday(&tval, NULL);
     (*pr->fproc)(recvbuf, n, &tval);
+    if (halt_operation == 1)
+      break;
   }
 }
 
 void sig_alrm(int signo) {
   (*pr->fsend)();
-
-  alarm(option_interval);
+  if (halt_operation == 0) {
+    alarm(option_interval);
+  }
   return; /* probably interrupts recvfrom() */
 }
 
