@@ -10,6 +10,7 @@ int datalen = 56; /* data that goes with ICMP echo request */
 int option_interval = 1;
 int option_maxsend = 0;
 int option_ttl = 0;
+int option_broadcast_allowed = 0;
 int halt_operation = 0;
 
 int main(int argc, char **argv) {
@@ -27,7 +28,7 @@ int main(int argc, char **argv) {
     switch (c) {
     case 'b':
       // Ping broadcast
-      printf("Option %c has not been implemented yet\n", c);
+      option_broadcast_allowed = 1;
       break;
     case 'c':
       // Terminate after certain count
@@ -97,6 +98,9 @@ int main(int argc, char **argv) {
   if (ai->ai_family == AF_INET) {
     pr = &proto_v4;
     // printf("is ipv4!\n");
+    if(strcmp(host, "255.255.255.255") == 0 && option_broadcast_allowed == 0){
+      err_quit("ping: Do you want to ping broadcast? Then -b. If not, check your local firewall rules");
+    }
 #ifdef IPV6
   } else if (ai->ai_family == AF_INET6) {
     pr = &proto_v6;
