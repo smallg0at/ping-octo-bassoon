@@ -9,6 +9,7 @@ struct proto proto_v6 = {proc_v6, send_v6, NULL, NULL, 0, IPPROTO_ICMPV6};
 int datalen = 56; /* data that goes with ICMP echo request */
 int option_interval = 1;
 int option_maxsend = 0;
+int option_ttl = 0;
 int halt_operation = 0;
 
 int main(int argc, char **argv) {
@@ -58,8 +59,7 @@ int main(int argc, char **argv) {
       break;
 
     case 't':
-      printf("Option %c has not been implemented yet, hasvalue %d\n", c,
-             atoi(optarg));
+      option_ttl = atoi(optarg);
       optionextra++;
       break;
 
@@ -150,7 +150,7 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
            Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_type,
            icmp->icmp_code);
   }
-  if (option_maxsend != 0 && icmp->icmp_seq >= option_maxsend-1)
+  if (option_maxsend != 0 && icmp->icmp_seq >= option_maxsend - 1)
     halt_operation = 1;
 }
 
@@ -196,7 +196,7 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
            Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_type,
            icmp6->icmp6_code);
   }
-  if (option_maxsend != 0 && icmp6->icmp6_seq >= option_maxsend-1)
+  if (option_maxsend != 0 && icmp6->icmp6_seq >= option_maxsend - 1)
     halt_operation = 1;
 #endif /* IPV6 */
 }
@@ -279,6 +279,13 @@ void readloop(void) {
     printf("Socket went wrong: Probably missing superuser priv.\n");
     err_sys("socket creation failed");
   }
+
+  if (option_ttl != 0) {
+    if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &option_ttl, sizeof(option_ttl)) < 0) {
+      perror("setsockopt");
+    }
+  }
+
   setuid(getuid()); /* don't need special permissions any more */
 
   size = 60 * 1024; /* OK if setsockopt fails */
