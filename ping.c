@@ -56,11 +56,13 @@ int main(int argc, char **argv) {
     case 'q':
       // Only show analytics
       option_only_analytics = 1;
+      if(verbose > 0){
+        err_quit("Conflict when handling option %c: -v cant be used with -q!",optopt);
+      }
       break;
 
     case 's':
-      printf("Option %c has not been implemented yet, hasvalue %d\n", c,
-             atoi(optarg));
+      datalen = atoi(optarg);
       optionextra++;
       break;
 
