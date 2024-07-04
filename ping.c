@@ -1,5 +1,6 @@
 #include "ping.h"
-
+#include "signal.h"
+#include "stdio.h"
 struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, 0, IPPROTO_ICMP};
 
 #ifdef IPV6
@@ -11,7 +12,12 @@ int option_interval = 1;
 int option_maxsend = 0;
 int option_ttl = 0;
 int option_broadcast_allowed = 0;
+int option_only_analytics = 0;
 int halt_operation = 0;
+
+double stats_sent = 0;
+double stats_recv = 0;
+double stats_total_delay = 0.0f;
 
 int main(int argc, char **argv) {
   int c;
@@ -49,14 +55,13 @@ int main(int argc, char **argv) {
 
     case 'q':
       // Only show analytics
-      printf("Option %c has not been implemented yet\n", c);
+      option_only_analytics = 1;
       break;
 
     case 's':
       printf("Option %c has not been implemented yet, hasvalue %d\n", c,
              atoi(optarg));
       optionextra++;
-
       break;
 
     case 't':
@@ -66,6 +71,9 @@ int main(int argc, char **argv) {
 
     case 'v':
       verbose++;
+      if(option_only_analytics){
+        err_quit("Conflict when handling option %c: -v cant be used with -q!",optopt);
+      }
       break;
 
     case '?':
@@ -98,8 +106,9 @@ int main(int argc, char **argv) {
   if (ai->ai_family == AF_INET) {
     pr = &proto_v4;
     // printf("is ipv4!\n");
-    if(strcmp(host, "255.255.255.255") == 0 && option_broadcast_allowed == 0){
-      err_quit("ping: Do you want to ping broadcast? Then -b. If not, check your local firewall rules");
+    if (strcmp(host, "255.255.255.255") == 0 && option_broadcast_allowed == 0) {
+      err_quit("ping: Do you want to ping broadcast? Then -b. If not, check "
+               "your local firewall rules");
     }
 #ifdef IPV6
   } else if (ai->ai_family == AF_INET6) {
@@ -145,17 +154,21 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
     tv_sub(tvrecv, tvsend);
     rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
 
-    printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n", icmplen,
-           Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_seq, ip->ip_ttl,
-           rtt);
+    stats_total_delay += rtt;
+    stats_recv++;
+    if (!option_only_analytics) {
+      printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n", icmplen,
+             Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_seq, ip->ip_ttl,
+             rtt);
+    }
 
   } else if (verbose) {
     printf("  %d bytes from %s: type = %d, code = %d\n", icmplen,
            Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_type,
            icmp->icmp_code);
   }
-  if (option_maxsend != 0 && icmp->icmp_seq >= option_maxsend - 1)
-    halt_operation = 1;
+
+  
 }
 
 void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
@@ -190,18 +203,20 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
     tvsend = (struct timeval *)(icmp6 + 1);
     tv_sub(tvrecv, tvsend);
     rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
-
-    printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n", icmp6len,
-           Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_seq,
-           ip6->ip6_hlim, rtt);
+    stats_total_delay += rtt;
+    stats_recv++;
+    if (!option_only_analytics) {
+      printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n", icmp6len,
+             Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_seq,
+             ip6->ip6_hlim, rtt);
+    }
 
   } else if (verbose) {
     printf("  %d bytes from %s: type = %d, code = %d\n", icmp6len,
            Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_type,
            icmp6->icmp6_code);
   }
-  if (option_maxsend != 0 && icmp6->icmp6_seq >= option_maxsend - 1)
-    halt_operation = 1;
+  
 #endif /* IPV6 */
 }
 
@@ -271,6 +286,12 @@ void send_v6() {
 #endif /* IPV6 */
 }
 
+void summarize_on_halt() { 
+  halt_operation = 1;
+  printf("\n%.0f sent, %.0f received, avg rtt = %.3f ms\n", stats_sent, stats_recv, stats_total_delay/stats_recv);
+  exit(0);
+}
+
 void readloop(void) {
   int size;
   char recvbuf[BUFSIZE];
@@ -285,7 +306,8 @@ void readloop(void) {
   }
 
   if (option_ttl != 0) {
-    if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &option_ttl, sizeof(option_ttl)) < 0) {
+    if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &option_ttl,
+                   sizeof(option_ttl)) < 0) {
       perror("setsockopt");
     }
   }
@@ -296,6 +318,8 @@ void readloop(void) {
   setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
 
   sig_alrm(SIGALRM); /* send first packet */
+
+  signal(SIGINT, summarize_on_halt);
 
   for (;;) {
     len = pr->salen;
@@ -312,11 +336,17 @@ void readloop(void) {
     if (halt_operation == 1)
       break;
   }
+  summarize_on_halt();
 }
 
 void sig_alrm(int signo) {
   (*pr->fsend)();
   if (halt_operation == 0) {
+    if(stats_sent >= option_maxsend-1){
+      halt_operation = 1;
+      return;
+    }
+    stats_sent++;
     alarm(option_interval);
   }
   return; /* probably interrupts recvfrom() */
@@ -445,6 +475,7 @@ void err_sys(const char *fmt, ...) {
   va_end(ap);
   exit(1);
 }
+
 
 /*
  * getopt是由Unix标准库提供的函数，查看命令man 3 getopt。
