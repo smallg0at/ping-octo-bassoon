@@ -44,8 +44,23 @@ int main(int argc, char **argv) {
 
     case 'h':
       // Helpstring
-      printf("Helpstring to be added.\n");
-      return (0);
+      printf(
+        "Ping-octo-bassoon v1.0 Help\n\
+Usage\n\
+\tusage: ping [options] <hostname>\n\n\
+Options\n\
+\t<hostname>\tdns name or ip address\n\
+\t-b\t\tAllow broadcast\n\
+\t-c <maxsend>\tMax send count before termination\n\
+\t-h\t\tShow this message\n\
+\t-i <interval>\t\tSend interval\n\
+\t-q\t\tOnly output results when finishing / terminating\n\
+\t-s <sendsize>\tSet packet size\n\
+\t-t <ttl>\tSet TTL\n\
+\t-v\t\tVerbose\n"
+        );
+
+      exit(0);
 
     case 'i':
       // Send Interval
@@ -92,7 +107,7 @@ int main(int argc, char **argv) {
   }
 
   if (optind != argc - 1)
-    err_quit("usage: ping [ -v ] <hostname>");
+    err_quit("usage: ping [-b] [-c maxsend] [-h] [-i interval] [-q] [-s sendsize] [-t ttl] [-v] <hostname>");
 
   host = argv[optind];
 
