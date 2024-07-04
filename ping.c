@@ -53,7 +53,7 @@ Options\n\
 \t-b\t\tAllow broadcast\n\
 \t-c <maxsend>\tMax send count before termination\n\
 \t-h\t\tShow this message\n\
-\t-i <interval>\t\tSend interval\n\
+\t-i <interval>\tSend interval\n\
 \t-q\t\tOnly output results when finishing / terminating\n\
 \t-s <sendsize>\tSet packet size\n\
 \t-t <ttl>\tSet TTL\n\
