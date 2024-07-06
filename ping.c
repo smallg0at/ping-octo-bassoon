@@ -17,7 +17,7 @@ int option_ttl = 0;
 int option_broadcast_allowed = 0;
 int option_only_analytics = 0;
 int option_debug = 0;
-int option_dont_doute = 0;
+int option_dont_route = 0;
 int option_buffer_size = 0;
 int status_will_be_broadcasting = 0;
 const int const_allow_hdr = 1;
@@ -130,7 +130,7 @@ Options\n\
       option_debug = 1;
       break;
     case 'I':
-      option_dont_doute = 1;
+      option_dont_route = 1;
       break;
     case '?':
       err_quit("unrecognized option: %c", optopt);
@@ -403,8 +403,8 @@ void readloop(void) {
     }
   }
 
-  if(option_dont_doute != 0){
-    if (setsockopt(sockfd, SOL_SOCKET, SO_DONTROUTE, &option_dont_doute, sizeof(option_dont_doute) )<0) {
+  if(option_dont_route != 0){
+    if (setsockopt(sockfd, SOL_SOCKET, SO_DONTROUTE, &option_dont_route, sizeof(option_dont_route) )<0) {
       perror("setsockopt");
     }
   }
