@@ -419,9 +419,10 @@ void readloop(void) {
     }
   }
 
-  if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_allow_hdr, sizeof(const_allow_hdr)) < 0) {
-        perror("setsockopt");
-    }
+
+  // if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_allow_hdr, sizeof(const_allow_hdr)) < 0) {
+  //       perror("setsockopt");
+  //   }
 
   setuid(getuid()); /* don't need special permissions any more */
 
