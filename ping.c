@@ -1,6 +1,7 @@
 #include "ping.h"
 #include "signal.h"
 #include "stdio.h"
+#include <asm-generic/socket.h>
 #include <netinet/in.h>
 struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, 0, IPPROTO_ICMP};
 
@@ -15,6 +16,9 @@ int option_maxsend = 0;
 int option_ttl = 0;
 int option_broadcast_allowed = 0;
 int option_only_analytics = 0;
+int option_debug = 0;
+int option_dont_doute = 0;
+int option_buffer_size = 0;
 int halt_operation = 0;
 
 double stats_sent = 0;
@@ -31,7 +35,7 @@ int main(int argc, char **argv) {
   int optioncnt = 0;
   int optionextra = 0;
 
-  while ((c = getopt(argc, argv, "abc:hi:qs:t:v")) != -1) {
+  while ((c = getopt(argc, argv, "abc:hi:qs:t:vB:DI")) != -1) {
     optioncnt++;
     switch (c) {
     case 'a':
@@ -65,7 +69,10 @@ Options\n\
 \t-q\t\tOnly output results when finishing / terminating\n\
 \t-s <sendsize>\tSet packet size\n\
 \t-t <ttl>\tSet TTL\n\
-\t-v\t\tVerbose\n");
+\t-v\t\tVerbose\n\
+\t-B <size>\tSet Buffer Size\n\
+\t-D\t\tSet Debug On\n\
+\t-I\t\tDont Route\n");
 
       exit(0);
 
@@ -112,6 +119,17 @@ Options\n\
       }
       break;
 
+    case 'B':
+      option_buffer_size = atoi(optarg);
+      if(option_buffer_size<=0){
+        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      }
+    case 'D':
+      option_debug = 1;
+      break;
+    case 'I':
+      option_dont_doute = 1;
+      break;
     case '?':
       err_quit("unrecognized option: %c", optopt);
       return (0);
@@ -213,6 +231,7 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
 
 void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
 #ifdef IPV6
+  
   int hlen1, icmp6len;
   double rtt;
   struct ip6_hdr *ip6;
@@ -229,12 +248,14 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
   if ( (icmp6len = len - hlen1) < 8)
           err_quit("icmp6len (%d) < 8", icmp6len);
   */
-
+  // ip6 = (struct ip6_hdr *)ptr;
+  // hlen1 = sizeof(struct ip6_hdr);
   icmp6 = (struct icmp6_hdr *)ptr;
   if ((icmp6len = len) < 8) // len-40
     err_quit("icmp6len (%d) < 8", icmp6len);
-
+  
   if (icmp6->icmp6_type == ICMP6_ECHO_REPLY) {
+    
     if (icmp6->icmp6_id != pid)
       return; /* not a response to our ECHO_REQUEST */
     if (icmp6len < 16)
@@ -245,11 +266,14 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
     rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
     stats_total_delay += rtt;
     stats_recv++;
+    
     if(option_emit_audio) putchar('\a');
     if (!option_only_analytics) {
-      printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n", icmp6len,
-             Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_seq,
-             ip6->ip6_hlim, rtt);
+      printf("%d bytes from %s: seq=%u, rtt=%.3f ms\n", icmp6len,
+             Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_seq, rtt);
+      // printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n", icmp6len,
+      //        Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_seq,
+      //        ip6->ip6_hlim, rtt);
     }
 
   } else if (verbose) {
@@ -343,7 +367,9 @@ void send_v6() {
 
   len = 8 + datalen; /* 8-byte ICMPv6 header */
 
-  sendto(sockfd, sendbuf, len, 0, pr->sasend, pr->salen);
+  if(sendto(sockfd, sendbuf, len, 0, pr->sasend, pr->salen) < 0){
+    perror("sendto (ipv6) failed");
+  }
   /* kernel calculates and stores checksum for us */
 #endif /* IPV6 */
 }
@@ -371,6 +397,23 @@ void readloop(void) {
   if (option_ttl != 0) {
     if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &option_ttl,
                    sizeof(option_ttl)) < 0) {
+      perror("setsockopt");
+    }
+  }
+
+  if(option_debug != 0){
+    if (setsockopt(sockfd, SOL_SOCKET, SO_DEBUG, &option_debug, sizeof(option_debug) )<0) {
+      perror("setsockopt");
+    }
+  }
+
+  if(option_dont_doute != 0){
+    if (setsockopt(sockfd, SOL_SOCKET, SO_DONTROUTE, &option_dont_doute, sizeof(option_dont_doute) )<0) {
+      perror("setsockopt");
+    }
+  }
+  if(option_buffer_size != 0){
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &option_buffer_size, sizeof(option_buffer_size) )<0) {
       perror("setsockopt");
     }
   }
