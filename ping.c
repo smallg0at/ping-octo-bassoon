@@ -40,6 +40,9 @@ int main(int argc, char **argv) {
     case 'c':
       // Terminate after certain count
       option_maxsend = atoi(optarg);
+      if(option_maxsend<0){
+        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      }
       optionextra++;
       break;
 
@@ -63,7 +66,11 @@ Options\n\
 
     case 'i':
       // Send Interval
-      option_interval = atoi(optarg);
+      option_interval = atof(optarg);
+      if(option_interval<0){
+        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      }
+      if(option_interval < 1) printf("Interval is too low, target may not respond again\n");
       optionextra++;
       break;
 
@@ -78,11 +85,17 @@ Options\n\
 
     case 's':
       datalen = atoi(optarg);
+      if(datalen<0){
+        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      }
       optionextra++;
       break;
 
     case 't':
       option_ttl = atoi(optarg);
+      if(option_ttl<0){
+        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      }
       optionextra++;
       break;
 
