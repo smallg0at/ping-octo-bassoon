@@ -44,8 +44,7 @@ int main(int argc, char **argv) {
 
     case 'h':
       // Helpstring
-      printf(
-        "Ping-octo-bassoon v1.0 Help\n\
+      printf("Ping-octo-bassoon v1.0 Help\n\
 Usage\n\
 \tusage: ping [options] <hostname>\n\n\
 Options\n\
@@ -57,8 +56,7 @@ Options\n\
 \t-q\t\tOnly output results when finishing / terminating\n\
 \t-s <sendsize>\tSet packet size\n\
 \t-t <ttl>\tSet TTL\n\
-\t-v\t\tVerbose\n"
-        );
+\t-v\t\tVerbose\n");
 
       exit(0);
 
@@ -71,8 +69,9 @@ Options\n\
     case 'q':
       // Only show analytics
       option_only_analytics = 1;
-      if(verbose > 0){
-        err_quit("Conflict when handling option %c: -v cant be used with -q!",optopt);
+      if (verbose > 0) {
+        err_quit("Conflict when handling option %c: -v cant be used with -q!",
+                 optopt);
       }
       break;
 
@@ -88,8 +87,9 @@ Options\n\
 
     case 'v':
       verbose++;
-      if(option_only_analytics){
-        err_quit("Conflict when handling option %c: -v cant be used with -q!",optopt);
+      if (option_only_analytics) {
+        err_quit("Conflict when handling option %c: -v cant be used with -q!",
+                 optopt);
       }
       break;
 
@@ -107,7 +107,8 @@ Options\n\
   }
 
   if (optind != argc - 1)
-    err_quit("usage: ping [-b] [-c maxsend] [-h] [-i interval] [-q] [-s sendsize] [-t ttl] [-v] <hostname>");
+    err_quit("usage: ping [-b] [-c maxsend] [-h] [-i interval] [-q] [-s "
+             "sendsize] [-t ttl] [-v] <hostname>");
 
   host = argv[optind];
 
@@ -123,9 +124,13 @@ Options\n\
   if (ai->ai_family == AF_INET) {
     pr = &proto_v4;
     // printf("is ipv4!\n");
-    if (strcmp(host, "255.255.255.255") == 0 && option_broadcast_allowed == 0) {
-      err_quit("ping: Do you want to ping broadcast? Then -b. If not, check "
-               "your local firewall rules");
+    if (strcmp(host, "255.255.255.255") == 0) {
+      if (option_broadcast_allowed > 0) {
+        option_broadcast_allowed = 2;
+      } else {
+        err_quit("ping: Do you want to ping broadcast? Then -b. If not, check "
+                 "your local firewall rules");
+      }
     }
 #ifdef IPV6
   } else if (ai->ai_family == AF_INET6) {
@@ -184,8 +189,6 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
            Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_type,
            icmp->icmp_code);
   }
-
-  
 }
 
 void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
@@ -233,7 +236,7 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
            Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_type,
            icmp6->icmp6_code);
   }
-  
+
 #endif /* IPV6 */
 }
 
@@ -281,7 +284,16 @@ void send_v4(void) {
   icmp->icmp_cksum = 0;
   icmp->icmp_cksum = in_cksum((u_short *)icmp, len);
 
-  sendto(sockfd, sendbuf, len, 0, pr->sasend, pr->salen);
+  if (option_broadcast_allowed == 2) {
+    // Set destination IP address to local interface's IP address and port to 0
+    struct sockaddr_in dest_addr;
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(0);
+    dest_addr.sin_addr.s_addr = INADDR_ANY; // or INADDR_LOOPBACK for localhost
+    sendto(sockfd, sendbuf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+  } else {
+    sendto(sockfd, sendbuf, len, 0, pr->sasend, pr->salen);
+  }
 }
 
 void send_v6() {
@@ -303,9 +315,10 @@ void send_v6() {
 #endif /* IPV6 */
 }
 
-void summarize_on_halt() { 
+void summarize_on_halt() {
   halt_operation = 1;
-  printf("\n%.0f sent, %.0f received, avg rtt = %.3f ms\n", stats_sent, stats_recv, stats_total_delay/stats_recv);
+  printf("\n%.0f sent, %.0f received, avg rtt = %.3f ms\n", stats_sent,
+         stats_recv, stats_total_delay / stats_recv);
   exit(0);
 }
 
@@ -359,7 +372,7 @@ void readloop(void) {
 void sig_alrm(int signo) {
   (*pr->fsend)();
   if (halt_operation == 0) {
-    if(stats_sent >= option_maxsend-1 && option_maxsend > 0){
+    if (stats_sent >= option_maxsend - 1 && option_maxsend > 0) {
       stats_sent++;
       halt_operation = 1;
       return;
@@ -493,7 +506,6 @@ void err_sys(const char *fmt, ...) {
   va_end(ap);
   exit(1);
 }
-
 
 /*
  * getopt是由Unix标准库提供的函数，查看命令man 3 getopt。
