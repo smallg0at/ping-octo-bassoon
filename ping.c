@@ -1,6 +1,7 @@
 #include "ping.h"
 #include "signal.h"
 #include "stdio.h"
+#include <netinet/in.h>
 struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, 0, IPPROTO_ICMP};
 
 #ifdef IPV6
@@ -167,7 +168,7 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
     err_quit("icmplen (%d) < 8", icmplen);
 
   if (icmp->icmp_type == ICMP_ECHOREPLY) {
-    if (icmp->icmp_id != pid)
+    if (icmp->icmp_id != pid && option_broadcast_allowed != 2)
       return; /* not a response to our ECHO_REQUEST */
     if (icmplen < 16)
       err_quit("icmplen (%d) < 16", icmplen);
@@ -285,14 +286,26 @@ void send_v4(void) {
   icmp->icmp_cksum = in_cksum((u_short *)icmp, len);
 
   if (option_broadcast_allowed == 2) {
-    // Set destination IP address to local interface's IP address and port to 0
+    // Set socket option to allow broadcasting
+    int broadcast = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) < 0) {
+      perror("setsockopt (SO_BROADCAST) failed");
+      return;
+    }
+
+    // Set destination IP address to broadcast address
     struct sockaddr_in dest_addr;
+    memset(&dest_addr, 0, sizeof(dest_addr));
     dest_addr.sin_family = AF_INET;
-    dest_addr.sin_port = htons(0);
-    dest_addr.sin_addr.s_addr = INADDR_ANY; // or INADDR_LOOPBACK for localhost
-    sendto(sockfd, sendbuf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    dest_addr.sin_addr.s_addr = htonl(INADDR_BROADCAST); // Use INADDR_BROADCAST for broadcast address
+
+    if (sendto(sockfd, sendbuf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
+      perror("sendto (broadcast) failed");
+    }
   } else {
-    sendto(sockfd, sendbuf, len, 0, pr->sasend, pr->salen);
+    if (sendto(sockfd, sendbuf, len, 0, (struct sockaddr *)pr->sasend, pr->salen) < 0) {
+      perror("sendto (regular) failed");
+    }
   }
 }
 
