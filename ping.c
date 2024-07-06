@@ -19,6 +19,7 @@ int option_only_analytics = 0;
 int option_debug = 0;
 int option_dont_doute = 0;
 int option_buffer_size = 0;
+int status_will_be_broadcasting = 0;
 const int const_allow_hdr = 1;
 int halt_operation = 0;
 
@@ -164,7 +165,7 @@ Options\n\
     // printf("is ipv4!\n");
     if (strcmp(host, "255.255.255.255") == 0) {
       if (option_broadcast_allowed > 0) {
-        option_broadcast_allowed = 2;
+        status_will_be_broadcasting = 1;
       } else {
         err_quit("ping: Do you want to ping broadcast? Then -b. If not, check "
                  "your local firewall rules");
@@ -330,13 +331,7 @@ void send_v4(void) {
   icmp->icmp_cksum = 0;
   icmp->icmp_cksum = in_cksum((u_short *)icmp, len);
 
-  if (option_broadcast_allowed == 2) {
-    // Set socket option to allow broadcasting
-    int broadcast = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) < 0) {
-      perror("setsockopt (SO_BROADCAST) failed");
-      return;
-    }
+  if (option_broadcast_allowed == 1 && status_will_be_broadcasting) {
 
     // Set destination IP address to broadcast address
     struct sockaddr_in dest_addr;
@@ -419,6 +414,12 @@ void readloop(void) {
     }
   }
 
+  if(option_broadcast_allowed != 0){
+      if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &option_broadcast_allowed, sizeof(option_broadcast_allowed)) < 0) {
+        perror("setsockopt (SO_BROADCAST) failed");
+        return;
+    }
+  }
 
   // if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_allow_hdr, sizeof(const_allow_hdr)) < 0) {
   //       perror("setsockopt");
