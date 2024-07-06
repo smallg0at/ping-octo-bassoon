@@ -9,7 +9,8 @@ struct proto proto_v6 = {proc_v6, send_v6, NULL, NULL, 0, IPPROTO_ICMPV6};
 #endif
 
 int datalen = 56; /* data that goes with ICMP echo request */
-int option_interval = 1;
+int option_emit_audio = 0;
+double option_interval = 1;
 int option_maxsend = 0;
 int option_ttl = 0;
 int option_broadcast_allowed = 0;
@@ -30,9 +31,12 @@ int main(int argc, char **argv) {
   int optioncnt = 0;
   int optionextra = 0;
 
-  while ((c = getopt(argc, argv, "bc:hi:qs:t:v")) != -1) {
+  while ((c = getopt(argc, argv, "abc:hi:qs:t:v")) != -1) {
     optioncnt++;
     switch (c) {
+    case 'a':
+      option_emit_audio = 1;
+      break;
     case 'b':
       // Ping broadcast
       option_broadcast_allowed = 1;
@@ -53,6 +57,7 @@ Usage\n\
 \tusage: ping [options] <hostname>\n\n\
 Options\n\
 \t<hostname>\tdns name or ip address\n\
+\t-a\t\tMake audible cue when receiving\n\
 \t-b\t\tAllow broadcast\n\
 \t-c <maxsend>\tMax send count before termination\n\
 \t-h\t\tShow this message\n\
@@ -192,6 +197,7 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
 
     stats_total_delay += rtt;
     stats_recv++;
+    if(option_emit_audio) putchar('\a');
     if (!option_only_analytics) {
       printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n", icmplen,
              Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_seq, ip->ip_ttl,
@@ -239,6 +245,7 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
     rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
     stats_total_delay += rtt;
     stats_recv++;
+    if(option_emit_audio) putchar('\a');
     if (!option_only_analytics) {
       printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n", icmp6len,
              Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_seq,
