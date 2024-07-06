@@ -19,6 +19,7 @@ int option_only_analytics = 0;
 int option_debug = 0;
 int option_dont_doute = 0;
 int option_buffer_size = 0;
+const int const_allow_hdr = 1;
 int halt_operation = 0;
 
 double stats_sent = 0;
@@ -417,6 +418,10 @@ void readloop(void) {
       perror("setsockopt");
     }
   }
+
+  if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_allow_hdr, sizeof(const_allow_hdr)) < 0) {
+        perror("setsockopt");
+    }
 
   setuid(getuid()); /* don't need special permissions any more */
 
