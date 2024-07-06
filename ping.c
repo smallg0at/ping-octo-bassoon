@@ -359,7 +359,7 @@ void readloop(void) {
 void sig_alrm(int signo) {
   (*pr->fsend)();
   if (halt_operation == 0) {
-    if(stats_sent >= option_maxsend-1){
+    if(stats_sent >= option_maxsend-1 && option_maxsend > 0){
       halt_operation = 1;
       return;
     }
