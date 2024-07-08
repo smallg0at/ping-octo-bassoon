@@ -2,7 +2,17 @@
 
 This is a teamwork for BJUT's Networking Course Design.
 
+## Usage
 
+```bash
+make
+sudo ./ping [options] <ip>
+```
+
+## Major Improvements on the previously given code
+
+- IPv6 functionality has been restored and can actually be used now without segfaulting. Try this: `sudo ./ping -6 ipv6.test-ipv6.com`
+- Enabled rapid fire ability by tinkering with the timer system. this means you could now have a < 1s interval.
 
 ## Help
 ```
