@@ -2,7 +2,7 @@
 
 This is a teamwork for BJUT's Networking Course Design, made in July 2024.
 
-This is a simple ping program.
+Built on top of code given by instructor, This is a simple ping program that tries to make everything implemented right.
 
 ## Installation
 
@@ -23,7 +23,7 @@ If you ran `make install`, there's no need to sudo.
 
 ## Major Improvements on the previously given code
 
-- IPv6 functionality has been restored and can actually be used now without segfaulting. Try this: `sudo ./ping -6 ipv6.test-ipv6.com`
+- IPv6 functionality has been restored and can actually be used now without segfaulting. Try this: `./ping -6 ipv6.test-ipv6.com`
 - Enabled rapid fire ability by tinkering with the timer system. this means you could now have a < 1s interval.
 
 ## Known Issue
