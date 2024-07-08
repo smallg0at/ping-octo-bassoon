@@ -3,7 +3,8 @@
 #include "stdio.h"
 #include "sys/time.h"
 #include <asm-generic/socket.h>
-#include <unistd.h>
+#include "string.h"
+#include "unistd.h"
 
 struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, 0, IPPROTO_ICMP};
 
@@ -23,7 +24,7 @@ int option_dont_route = 0;
 int option_buffer_size = 0;
 int status_will_be_broadcasting = 0;
 int option_protflag = 0;
-int option_mtu = 0;
+int option_mtu = -1;
 int option_timestamp = 0;
 int option_flush = 0;
 int option_adaptive = 0;
@@ -46,7 +47,7 @@ int main(int argc, char **argv) {
   int optioncnt = 0;
   int optionextra = 0;
 
-  while ((c = getopt(argc, argv, "46aAbB:c:dDfhi:qrs:t:vm:MVw:")) != -1) {
+  while ((c = getopt(argc, argv, "46aAbB:c:dDfhi:qrs:t:vm:M:Vw:")) != -1) {
     optioncnt++;
     switch (c) {
     case '4':
@@ -81,10 +82,10 @@ int main(int argc, char **argv) {
       }
       optionextra++;
       break;
-    case 'd':
+    case 'D':
       option_timestamp = 1;
       break;
-    case 'D':
+    case 'd':
       option_debug = 1;
       break;
     case 'f':
@@ -93,7 +94,7 @@ int main(int argc, char **argv) {
       break;
     case 'h':
       // Helpstring
-      printf("Ping-octo-bassoon v1.2 Help\n\
+      printf("Ping-octo-bassoon v1.2.1 Help\n\
 Usage\n\
 \tusage: ping [options] <hostname>\n\n\
 Options\n\
@@ -111,7 +112,7 @@ Options\n\
 \t-h\t\tShow this message\n\
 \t-i <interval>\tSend interval\n\
 \t-m <mark>\tMarking packet\n\
-\t-M\t\tMTU Enable\n\
+\t-M <option>\tMTU Stats. Allowed values: dont, want, do, probe.\n\
 \t-q\t\tOnly output results when finishing / terminating\n\
 \t-r\t\tDont Route\n\
 \t-s <sendsize>\tSet packet size\n\
@@ -137,7 +138,18 @@ Options\n\
       break;
 
     case 'M':
-      option_mtu = 1;
+      if(strcmp(optarg, "dont") == 0){
+        option_mtu = 0;
+      } else if(strcmp(optarg, "want") == 0){
+        option_mtu = 1;
+      } else if(strcmp(optarg, "do") == 0){
+        option_mtu = 2;
+      } else if(strcmp(optarg, "probe") == 0){
+        option_mtu = 3;
+      } else {
+        err_quit("Invalid MTU option. ");
+      }
+      printf("MTU Discover Value set to %d.\n", option_mtu);
       break;
     case 'q':
       // Only show analytics
@@ -179,7 +191,7 @@ Options\n\
 
 
     case 'V':
-      printf("Ping-octo-bassoon v1.1 Help\n");
+      printf("Ping-octo-bassoon v1.2.1 Help\n");
       exit(0);
     case 'w':
       option_deadline = atoi(optarg);
@@ -522,7 +534,7 @@ void readloop(void) {
       perror("setsockopt");
     }
   }
-  if (option_mtu != 0) {
+  if (option_mtu != -1) {
     if (setsockopt(sockfd, IPPROTO_IP, IP_MTU_DISCOVER, &option_mtu,
                    sizeof(option_mtu)) < 0) {
       perror("setsockopt");
