@@ -35,7 +35,7 @@ Options
         -h              Show this message
         -i <interval>   Send interval
         -m <mark>       Marking packet
-        -M              MTU Enable
+        -M <option>     MTU Stats. Allowed values: dont, want, do, probe.
         -q              Only output results when finishing / terminating
         -r              Dont Route
         -s <sendsize>   Set packet size
@@ -44,7 +44,3 @@ Options
         -V              Print Version
         -w <deadline>   Termination time by seconds
 ```
-
-<!-- ## Rant
-
-The lecturer scored by PARAMETERS implemented, that means you could stuff in a million stuff that both frickin easy to implement and isnt even inconsistent with the linux ping manual!!! -->
