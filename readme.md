@@ -37,4 +37,4 @@ Options
 
 ## Rant
 
-The lecturer scored by PARAMETERS implemented, that means you could stuff in a million stuff that both incorrect and isnt even inconsistent with the linux ping manual!!!
+The lecturer scored by PARAMETERS implemented, that means you could stuff in a million stuff that both frickin easy to implement and isnt even inconsistent with the linux ping manual!!!
