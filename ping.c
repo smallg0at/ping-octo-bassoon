@@ -1,8 +1,10 @@
 #include "ping.h"
 #include "signal.h"
 #include "stdio.h"
+#include "sys/time.h"
 #include <asm-generic/socket.h>
-#include <netinet/in.h>
+#include <unistd.h>
+
 struct proto proto_v4 = {proc_v4, send_v4, NULL, NULL, 0, IPPROTO_ICMP};
 
 #ifdef IPV6
@@ -20,6 +22,13 @@ int option_debug = 0;
 int option_dont_route = 0;
 int option_buffer_size = 0;
 int status_will_be_broadcasting = 0;
+int option_protflag = 0;
+int option_mtu = 0;
+int option_timestamp = 0;
+int option_flush = 0;
+int option_adaptive = 0;
+int option_mark = 0;
+int option_deadline = 0;
 const int const_allow_hdr = 1;
 int halt_operation = 0;
 
@@ -37,57 +46,99 @@ int main(int argc, char **argv) {
   int optioncnt = 0;
   int optionextra = 0;
 
-  while ((c = getopt(argc, argv, "abc:hi:qs:t:vB:DI")) != -1) {
+  while ((c = getopt(argc, argv, "46aAbB:c:dDfhi:qrs:t:vm:MVw:")) != -1) {
     optioncnt++;
     switch (c) {
+    case '4':
+      option_protflag = 4;
+      break;
+    case '6':
+      option_protflag = 6;
+      break;
     case 'a':
       option_emit_audio = 1;
+      break;
+    case 'A':
+      option_adaptive = 1;
       break;
     case 'b':
       // Ping broadcast
       option_broadcast_allowed = 1;
       break;
+    case 'B':
+      option_buffer_size = atoi(optarg);
+      if (option_buffer_size <= 0) {
+        err_quit("Error when handling option %c: cannot be a negative value!",
+                 optopt);
+      }
+      break;
     case 'c':
       // Terminate after certain count
       option_maxsend = atoi(optarg);
-      if(option_maxsend<0){
-        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      if (option_maxsend < 0) {
+        err_quit("Error when handling option %c: cannot be a negative value!",
+                 optopt);
       }
       optionextra++;
       break;
-
+    case 'd':
+      option_timestamp = 1;
+      break;
+    case 'D':
+      option_debug = 1;
+      break;
+    case 'f':
+      option_flush = 1;
+      setbuf(stdout, NULL);
+      break;
     case 'h':
       // Helpstring
-      printf("Ping-octo-bassoon v1.0 Help\n\
+      printf("Ping-octo-bassoon v1.2 Help\n\
 Usage\n\
 \tusage: ping [options] <hostname>\n\n\
 Options\n\
 \t<hostname>\tdns name or ip address\n\
+\t-4\t\tIPv4 Only\n\
+\t-6\t\tIPv6 Only\n\
 \t-a\t\tMake audible cue when receiving\n\
+\t-A\t\tSort of Adaptive Ping\n\
 \t-b\t\tAllow broadcast\n\
+\t-B <size>\tSet Buffer Size\n\
 \t-c <maxsend>\tMax send count before termination\n\
+\t-d\t\tSet Debug On\n\
+\t-D\t\tPrint Timestamp\n\
+\t-f\t\tFlood ping. For every ECHO_REQUEST sent a period “.” is printed, while for every ECHO_REPLY received a backspace is printed. \n\
 \t-h\t\tShow this message\n\
 \t-i <interval>\tSend interval\n\
+\t-m <mark>\tMarking packet\n\
+\t-M\t\tMTU Enable\n\
 \t-q\t\tOnly output results when finishing / terminating\n\
+\t-r\t\tDont Route\n\
 \t-s <sendsize>\tSet packet size\n\
 \t-t <ttl>\tSet TTL\n\
 \t-v\t\tVerbose\n\
-\t-B <size>\tSet Buffer Size\n\
-\t-D\t\tSet Debug On\n\
-\t-I\t\tDont Route\n");
+\t-V\t\tPrint Version\n\
+\t-w <deadline>\tTermination time by seconds\n");
 
       exit(0);
 
     case 'i':
       // Send Interval
       option_interval = atof(optarg);
-      if(option_interval<0){
-        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      if (option_interval < 0) {
+        err_quit("Error when handling option %c: cannot be a negative value!",
+                 optopt);
       }
-      if(option_interval < 1) printf("Interval is too low, target may not respond again\n");
+      optionextra++;
+      break;
+    case 'm':
+      option_mark = atoi(optarg);
       optionextra++;
       break;
 
+    case 'M':
+      option_mtu = 1;
+      break;
     case 'q':
       // Only show analytics
       option_only_analytics = 1;
@@ -96,19 +147,23 @@ Options\n\
                  optopt);
       }
       break;
-
+    case 'r':
+      option_dont_route = 1;
+      break;
     case 's':
       datalen = atoi(optarg);
-      if(datalen<0){
-        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      if (datalen < 0) {
+        err_quit("Error when handling option %c: cannot be a negative value!",
+                 optopt);
       }
       optionextra++;
       break;
 
     case 't':
       option_ttl = atoi(optarg);
-      if(option_ttl<0){
-        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+      if (option_ttl < 0) {
+        err_quit("Error when handling option %c: cannot be a negative value!",
+                 optopt);
       }
       optionextra++;
       break;
@@ -121,16 +176,17 @@ Options\n\
       }
       break;
 
-    case 'B':
-      option_buffer_size = atoi(optarg);
-      if(option_buffer_size<=0){
-        err_quit("Error when handling option %c: cannot be a negative value!",optopt);
+
+
+    case 'V':
+      printf("Ping-octo-bassoon v1.1 Help\n");
+      exit(0);
+    case 'w':
+      option_deadline = atoi(optarg);
+      if (option_deadline <= 0) {
+        err_quit("Error when handling option %c: cannot be a negative value!",
+                 optopt);
       }
-    case 'D':
-      option_debug = 1;
-      break;
-    case 'I':
-      option_dont_route = 1;
       break;
     case '?':
       err_quit("unrecognized option: %c", optopt);
@@ -146,21 +202,37 @@ Options\n\
   }
 
   if (optind != argc - 1)
-    err_quit("usage: ping [-b] [-c maxsend] [-h] [-i interval] [-q] [-s "
-             "sendsize] [-t ttl] [-v] <hostname>");
+    err_quit("usage: ping [options] <hostname>. add -h for more info.");
 
   host = argv[optind];
 
   pid = getpid();
   signal(SIGALRM, sig_alrm);
 
-  ai = host_serv(host, NULL, 0, 0);
+  switch (option_protflag) {
+  case 6: {
+    ai = host_serv(host, NULL, AF_INET6, 0);
+    if (ai == NULL) {
+      err_quit("An IPv6 Address does not exist unfortunately.");
+    }
+    break;
+  }
+  case 4:
+  default: {
+    ai = host_serv(host, NULL, 0, 0);
+    if (ai == NULL) {
+      err_quit("An IPv4 Address does not exist unfortunately.");
+    }
+    break;
+  }
+  }
 
   printf("ping %s (%s): %d data bytes\n", ai->ai_canonname,
          Sock_ntop_host(ai->ai_addr, ai->ai_addrlen), datalen);
 
   /* initialize according to protocol */
   if (ai->ai_family == AF_INET) {
+
     pr = &proto_v4;
     // printf("is ipv4!\n");
     if (strcmp(host, "255.255.255.255") == 0) {
@@ -212,13 +284,25 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
       err_quit("icmplen (%d) < 16", icmplen);
 
     tvsend = (struct timeval *)icmp->icmp_data;
+    double time = tvrecv->tv_sec + (tvrecv->tv_usec / 1000000.0);
     tv_sub(tvrecv, tvsend);
     rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
 
     stats_total_delay += rtt;
     stats_recv++;
-    if(option_emit_audio) putchar('\a');
-    if (!option_only_analytics) {
+    if (option_emit_audio) {
+      putchar('\a');
+    }
+    if (option_adaptive) {
+      option_interval =
+          ((rtt / 1000 + 0.005) > 0.2) ? (rtt / 1000 + 0.005) : 0.2;
+    }
+    if (option_flush == 1) {
+      printf("\b");
+    } else if (!option_only_analytics) {
+      if (option_timestamp) {
+        printf("Now is %lf, ", time);
+      }
       printf("%d bytes from %s: seq=%u, ttl=%d, rtt=%.3f ms\n", icmplen,
              Sock_ntop_host(pr->sarecv, pr->salen), icmp->icmp_seq, ip->ip_ttl,
              rtt);
@@ -233,7 +317,7 @@ void proc_v4(char *ptr, ssize_t len, struct timeval *tvrecv) {
 
 void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
 #ifdef IPV6
-  
+
   int hlen1, icmp6len;
   double rtt;
   struct ip6_hdr *ip6;
@@ -255,22 +339,33 @@ void proc_v6(char *ptr, ssize_t len, struct timeval *tvrecv) {
   icmp6 = (struct icmp6_hdr *)ptr;
   if ((icmp6len = len) < 8) // len-40
     err_quit("icmp6len (%d) < 8", icmp6len);
-  
+
   if (icmp6->icmp6_type == ICMP6_ECHO_REPLY) {
-    
+
     if (icmp6->icmp6_id != pid)
       return; /* not a response to our ECHO_REQUEST */
     if (icmp6len < 16)
       err_quit("icmp6len (%d) < 16", icmp6len);
 
     tvsend = (struct timeval *)(icmp6 + 1);
+    double time = tvrecv->tv_sec + (tvrecv->tv_usec / 1000000.0);
     tv_sub(tvrecv, tvsend);
     rtt = tvrecv->tv_sec * 1000.0 + tvrecv->tv_usec / 1000.0;
     stats_total_delay += rtt;
     stats_recv++;
-    
-    if(option_emit_audio) putchar('\a');
-    if (!option_only_analytics) {
+
+    if (option_emit_audio)
+      putchar('\a');
+    if (option_adaptive == 1) {
+      option_interval =
+          ((rtt / 1000 + 0.005) > 0.2) ? (rtt / 1000 + 0.005) : 0.2;
+    }
+    if (option_flush == 1) {
+      putchar('\b');
+    } else if (!option_only_analytics) {
+      if (option_timestamp) {
+        printf("Now is %lf, ", time);
+      }
       printf("%d bytes from %s: seq=%u, rtt=%.3f ms\n", icmp6len,
              Sock_ntop_host(pr->sarecv, pr->salen), icmp6->icmp6_seq, rtt);
       // printf("%d bytes from %s: seq=%u, hlim=%d, rtt=%.3f ms\n", icmp6len,
@@ -337,14 +432,21 @@ void send_v4(void) {
     struct sockaddr_in dest_addr;
     memset(&dest_addr, 0, sizeof(dest_addr));
     dest_addr.sin_family = AF_INET;
-    dest_addr.sin_addr.s_addr = htonl(INADDR_BROADCAST); // Use INADDR_BROADCAST for broadcast address
+    dest_addr.sin_addr.s_addr =
+        htonl(INADDR_BROADCAST); // Use INADDR_BROADCAST for broadcast address
 
-    if (sendto(sockfd, sendbuf, len, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
+    if (sendto(sockfd, sendbuf, len, 0, (struct sockaddr *)&dest_addr,
+               sizeof(dest_addr)) < 0) {
       perror("sendto (broadcast) failed");
+    } else if (option_flush == 1) {
+      printf(".");
     }
   } else {
-    if (sendto(sockfd, sendbuf, len, 0, (struct sockaddr *)pr->sasend, pr->salen) < 0) {
+    if (sendto(sockfd, sendbuf, len, 0, (struct sockaddr *)pr->sasend,
+               pr->salen) < 0) {
       perror("sendto (regular) failed");
+    } else if (option_flush == 1) {
+      printf(".");
     }
   }
 }
@@ -363,8 +465,10 @@ void send_v6() {
 
   len = 8 + datalen; /* 8-byte ICMPv6 header */
 
-  if(sendto(sockfd, sendbuf, len, 0, pr->sasend, pr->salen) < 0){
+  if (sendto(sockfd, sendbuf, len, 0, pr->sasend, pr->salen) < 0) {
     perror("sendto (ipv6) failed");
+  } else if (option_flush) {
+    printf(".");
   }
   /* kernel calculates and stores checksum for us */
 #endif /* IPV6 */
@@ -383,6 +487,8 @@ void readloop(void) {
   socklen_t len;
   ssize_t n;
   struct timeval tval;
+  struct timeval tval_now;
+  struct timeval tval_begin;
 
   sockfd = socket(pr->sasend->sa_family, SOCK_RAW, pr->icmpproto);
   if (sockfd < 0) {
@@ -397,36 +503,53 @@ void readloop(void) {
     }
   }
 
-  if(option_debug != 0){
-    if (setsockopt(sockfd, SOL_SOCKET, SO_DEBUG, &option_debug, sizeof(option_debug) )<0) {
+  if (option_debug != 0) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_DEBUG, &option_debug,
+                   sizeof(option_debug)) < 0) {
       perror("setsockopt");
     }
   }
 
-  if(option_dont_route != 0){
-    if (setsockopt(sockfd, SOL_SOCKET, SO_DONTROUTE, &option_dont_route, sizeof(option_dont_route) )<0) {
+  if (option_dont_route != 0) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_DONTROUTE, &option_dont_route,
+                   sizeof(option_dont_route)) < 0) {
       perror("setsockopt");
     }
   }
-  if(option_buffer_size != 0){
-    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &option_buffer_size, sizeof(option_buffer_size) )<0) {
+  if (option_buffer_size != 0) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &option_buffer_size,
+                   sizeof(option_buffer_size)) < 0) {
+      perror("setsockopt");
+    }
+  }
+  if (option_mtu != 0) {
+    if (setsockopt(sockfd, IPPROTO_IP, IP_MTU_DISCOVER, &option_mtu,
+                   sizeof(option_mtu)) < 0) {
+      perror("setsockopt");
+    }
+  }
+  if (option_mark != 0) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_MARK, &option_mark,
+                   sizeof(option_mark)) < 0) {
       perror("setsockopt");
     }
   }
 
-  if(option_broadcast_allowed != 0){
-      if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &option_broadcast_allowed, sizeof(option_broadcast_allowed)) < 0) {
-        perror("setsockopt (SO_BROADCAST) failed");
-        return;
+  if (option_broadcast_allowed != 0) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &option_broadcast_allowed,
+                   sizeof(option_broadcast_allowed)) < 0) {
+      perror("setsockopt (SO_BROADCAST) failed");
+      return;
     }
   }
 
-  // if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_allow_hdr, sizeof(const_allow_hdr)) < 0) {
+  // if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_allow_hdr,
+  // sizeof(const_allow_hdr)) < 0) {
   //       perror("setsockopt");
   //   }
 
   setuid(getuid()); /* don't need special permissions any more */
-
+  gettimeofday(&tval_begin, NULL);
   size = 60 * 1024; /* OK if setsockopt fails */
   setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
 
@@ -437,15 +560,23 @@ void readloop(void) {
   for (;;) {
     len = pr->salen;
     n = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, pr->sarecv, &len);
+
     if (n < 0) {
-      if (errno == EINTR)
+      if (errno == EINTR) {
+
         continue;
-      else
+      } else
         err_sys("recvfrom error");
     }
 
     gettimeofday(&tval, NULL);
     (*pr->fproc)(recvbuf, n, &tval);
+    gettimeofday(&tval_now, NULL);
+    tv_sub(&tval_now, &tval_begin);
+    // printf("elapsed %ld max %d", tval_now.tv_sec, option_deadline);
+    if ((tval_now.tv_sec >= option_deadline) && option_deadline != 0) {
+      summarize_on_halt();
+    }
     if (halt_operation == 1)
       break;
   }
@@ -461,7 +592,17 @@ void sig_alrm(int signo) {
       return;
     }
     stats_sent++;
-    alarm(option_interval);
+    long sec = (int)option_interval;
+    long usec = (long)((option_interval - sec) * 1e6);
+
+    struct itimerval timer;
+    timer.it_interval.tv_sec = sec;
+    timer.it_interval.tv_usec = usec;
+    timer.it_value.tv_sec = sec;
+    timer.it_value.tv_usec = usec;
+    if (setitimer(ITIMER_REAL, &timer, NULL) != 0) {
+      err_quit("Timer failed!");
+    }
   }
   return; /* probably interrupts recvfrom() */
 }
