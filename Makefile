@@ -19,3 +19,8 @@ ping: ping.o
 clean:
 	rm -f ${PROGS} core core.* *.o temp.* *.out typescript*
 
+install:
+	sudo setcap cap_net_raw,cap_net_admin=eip ./ping
+
+
+

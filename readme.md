@@ -1,18 +1,34 @@
-# Ping
+# ping-octo-bassoon
 
-This is a teamwork for BJUT's Networking Course Design.
+This is a teamwork for BJUT's Networking Course Design, made in July 2024.
 
-## Usage
+This is a simple ping program.
+
+## Installation
 
 ```bash
+git clone https://github.com/smallg0at/ping-octo-bassoon.git
+cd ping-octo-bassoon
 make
-sudo ./ping [options] <ip>
+make install # setting permissions
+```
+
+## Run
+
+If you ran `make install`, there's no need to sudo.
+
+```bash
+./ping [options] <ip>
 ```
 
 ## Major Improvements on the previously given code
 
 - IPv6 functionality has been restored and can actually be used now without segfaulting. Try this: `sudo ./ping -6 ipv6.test-ipv6.com`
 - Enabled rapid fire ability by tinkering with the timer system. this means you could now have a < 1s interval.
+
+## Known Issue
+
+- On network changes, ping-octo-bassoon will stop working until the environment reboots.
 
 ## Help
 ```
